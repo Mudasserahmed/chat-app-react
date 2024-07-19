@@ -17,7 +17,7 @@ const initialChats = {
   5: [{ text: 'Hey Eve!', sender: 'Eve' }, { text: 'Hey Eve! What’s up?', sender: 'You' }],
 };
 
-const socket = io('http://localhost:3000'); // Replace with your WebSocket server URL
+const socket = io('http://localhost:3000'); 
 
 const Chat = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
