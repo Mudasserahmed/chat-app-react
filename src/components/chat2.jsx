@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { sendMessage, onMessage, offMessage } from './socket';
+import { sendMessage, onMessage, offMessage } from '../socket';
 
 const Chat2 = () => {
     const [messages, setMessages] = useState(() => {
