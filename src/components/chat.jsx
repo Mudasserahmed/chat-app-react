@@ -30,9 +30,11 @@ const Chat = () => {
   }, []);
 
   const handleSendClick = () => {
+    const selectedName = contacts.filter((i)=>i.id == selectedContact)[0].name
+    console.log(selectedName)
     if (message.trim() === '') return; // Prevent sending empty messages
     // Emit a new message to the server
-    socket.emit('send_message', { contactId: selectedContact, text: message ,sender:contacts.name });
+    socket.emit('send_message', { contactId: selectedContact, text: message ,sender:selectedName });
     // Add the new message to the chats state
     setChats(prevChats => {
       const updatedChats = { ...prevChats };
@@ -65,9 +67,9 @@ const Chat = () => {
 
   useEffect(() => {
     socket.on('receive_message', (data) => {
+        console.log("recieved data",data)
       setChats((prevChats) => {
         const updatedChats = { ...prevChats };
-
         if (data.contactId in updatedChats) {
           updatedChats[data.contactId] = [
             ...updatedChats[data.contactId],
