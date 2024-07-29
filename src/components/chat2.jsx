@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { sendMessage, onMessage, offMessage } from '../socket';
 import { useNavigate } from 'react-router-dom';
-import { FaPaperclip, FaTimes } from "react-icons/fa";
+import { FaPaperclip, FaSearch, FaTimes } from "react-icons/fa";
 import axios from 'axios';
 
 const Chat2 = () => {
@@ -15,6 +15,9 @@ const Chat2 = () => {
     const [darkMode, setDarkMode] = useState(false);
     const [selectedFile, setSelectedFile] = useState(null);
     const [selectedFileName, setSelectedFileName] = useState('');
+    const [chats, setChats] = useState(["General Chat", "Project A", "Project B", "Random"]);
+    const [activeChat, setActiveChat] = useState("General Chat");
+    const [searchTerm, setSearchTerm] = useState('');
     const messageContainerRef = useRef(null);
 
     useEffect(() => {
@@ -69,7 +72,7 @@ const Chat2 = () => {
                 file: fileData,
                 timestamp: new Date().toISOString()
             };
-            console.log("message ",newMessage)
+            console.log("message ", newMessage)
             sendMessage(newMessage);
             setMessageText('');
             setSelectedFile(null);
@@ -78,7 +81,7 @@ const Chat2 = () => {
     };
 
     const handleFileChange = (event) => {
-        console.log("selected file",event.target.files[0])
+        console.log("selected file", event.target.files[0])
         const file = event.target.files[0];
         if (file && file.size <= 25 * 1024 * 1024) {
             console.log(file);
@@ -113,76 +116,107 @@ const Chat2 = () => {
         setSelectedFileName('');
     };
 
+    const handleChatClick = (chat) => {
+        setActiveChat(chat);
+        // Logic to load messages for the selected chat
+    };
+
+    const filteredChats = chats.filter(chat => chat.toLowerCase().includes(searchTerm.toLowerCase()));
+
     return (
-        <div className={`flex flex-col h-screen w-[50%] mx-auto border border-gray-300 shadow-md rounded-lg overflow-hidden ${darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}`}>
-            <header className="bg-[#004890] font-serif text-white p-4  text-xl font-semibold flex justify-between items-center">
-                <span> {userName}</span>
-                <span> <img src="https://cdn.prod.website-files.com/6476dfb953dc2bc84373e1b2/650d2c2e05326b2de5695b99_JS%20Bank%20Logo-%20White.png" className='w-23 h-10' alt="" />  </span>
-                {/* <span>JS Chat</span> */}
-                <button className='text-sm border border-slate-950 p-2 rounded-md bg-gray-400' onClick={handleLogout}>Reset Chat</button>
-            </header>
-            <div ref={messageContainerRef} className="flex-1 overflow-auto p-4 bg-gray-100">
-                <div className="space-y-4">
-                    {messages?.map((message, index) => {
-                        console.log(message)
-                        return (
-                            <div key={index} className={`flex ${message.username === userName ? 'justify-end' : 'justify-start'}`}>
-                                {message.username !== userName && (
-                                    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQpd4mJRIUwqgE8D_Z2znANEbtiz4GhI4M8NQ&s" alt="Logo" className="w-10 h-10 mr-3 rounded-full" />
-                                )}
-                                <div className={`p-3 rounded-lg max-w-xs ${message.username === userName ? 'bg-[#004890] text-white' : 'bg-gray-300 text-gray-800'}`}>
-                                    <div className="flex items-center">
-                                        <div>
-                                            <p className='break-words'>{message.text}</p>
-                                            {message.file && (
-                                                <button onClick={() => handleFileDownload(message.file)} className="text-sm text-black underline">
-                                                    Download {message.file.fileName}
-                                                </button>
-                                            )}
-                                            <p className="text-xs text-gray-500 mt-2">
-                                                {new Date(message.timestamp).toLocaleString()}
-                                            </p>
+        <div className="flex h-screen">
+            <div className="w-1/4 bg-[#F3F4F6] p-4">
+                <h2 className="text-2xl font-bold mb-4">Chats</h2>
+                <div className="relative mb-4">
+                    <input
+                        type="text"
+                        placeholder="Search chats..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="p-2 pl-10 w-full border border-gray-300 rounded-md"
+                    />
+                    <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                </div>
+
+                <ul className="space-y-2">
+                    {filteredChats.map((chat, index) => (
+                        <li key={index} className={`cursor-pointer p-2 rounded-md ${chat === activeChat ? 'bg-[#004890] text-white' : 'bg-gray-300 text-gray-900'}`} onClick={() => handleChatClick(chat)}>
+                            {chat}
+                        </li>
+                    ))}
+                </ul>
+            </div>
+            <div className={`flex flex-col h-screen w-3/4 mx-auto border border-gray-300 shadow-md rounded-lg overflow-hidden ${darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}`}>
+                <header className="bg-[#004890] font-serif text-white p-4  text-xl font-semibold flex justify-between items-center">
+                    <span>{userName}</span>
+                    <span>
+                        <img src="https://cdn.prod.website-files.com/6476dfb953dc2bc84373e1b2/650d2c2e05326b2de5695b99_JS%20Bank%20Logo-%20White.png" className='w-23 h-10' alt="" />
+                    </span>
+                    <button className='text-sm border border-slate-950 p-2 rounded-md bg-gray-400' onClick={handleLogout}>Reset Chat</button>
+                </header>
+                <div ref={messageContainerRef} className="flex-1 overflow-auto p-4 bg-gray-100">
+                    <div className="space-y-4">
+                        {messages?.map((message, index) => {
+                            console.log(message)
+                            return (
+                                <div key={index} className={`flex ${message.username === userName ? 'justify-end' : 'justify-start'}`}>
+                                    {message.username !== userName && (
+                                        <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQpd4mJRIUwqgE8D_Z2znANEbtiz4GhI4M8NQ&s" alt="Logo" className="w-10 h-10 mr-3 rounded-full" />
+                                    )}
+                                    <div className={`p-3 rounded-lg max-w-xs ${message.username === userName ? 'bg-[#004890] text-white' : 'bg-gray-300 text-gray-800'}`}>
+                                        <div className="flex items-center">
+                                            <div>
+                                                <p className='break-words'>{message.text}</p>
+                                                {message.file && (
+                                                    <button onClick={() => handleFileDownload(message.file)} className="text-sm text-black underline">
+                                                        Download {message.file.fileName}
+                                                    </button>
+                                                )}
+                                                <p className="text-xs text-gray-500 mt-2">
+                                                    {new Date(message.timestamp).toLocaleString()}
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
+                                    {message.username === userName && (
+                                        <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQpd4mJRIUwqgE8D_Z2znANEbtiz4GhI4M8NQ&s" alt="Logo" className="w-10 h-10 ml-3 rounded-full" />
+                                    )}
                                 </div>
-                                {message.username === userName && (
-                                    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQpd4mJRIUwqgE8D_Z2znANEbtiz4GhI4M8NQ&s" alt="Logo" className="w-10 h-10 ml-3 rounded-full" />
-                                )}
-                            </div>
-                        )
-                    })}
-                </div>
-            </div>
-            <div className="bg-gray-100 p-4 border-t border-gray-200 flex items-center space-x-2">
-                <input
-                    type="text"
-                    value={messageText}
-                    onKeyDown={handleKeyDown}
-                    onChange={(e) => setMessageText(e.target.value)}
-                    placeholder="Type your message..."
-                    className="flex-1 p-2 border border-gray-300 rounded-md no-focus-outline"
-                />
-                <input
-                    type="file"
-                    id="file-upload"
-                    className="hidden"
-                    onChange={handleFileChange}
-                />
-                <label htmlFor="file-upload" style={{ cursor: "pointer" }}>
-                    <FaPaperclip />
-                </label>
-                <button
-                    onClick={handleSendMessage}
-                    className="bg-[#004890] text-white p-2 rounded-md hover:bg-blue-700"
-                >
-                    Send
-                </button>
-                {selectedFileName && (
-                    <div className="flex items-center text-lg text-gray-800">
-                        {selectedFileName}
-                        <FaTimes onClick={handleFileReset} className="ml-2 cursor-pointer text-gray-500" />
+                            )
+                        })}
                     </div>
-                )}
+                </div>
+                <div className="bg-gray-100 p-4 border-t border-gray-200 flex items-center space-x-2">
+                    <input
+                        type="text"
+                        value={messageText}
+                        onKeyDown={handleKeyDown}
+                        onChange={(e) => setMessageText(e.target.value)}
+                        placeholder="Type your message..."
+                        className="flex-1 p-2 border border-gray-300 rounded-md no-focus-outline"
+                    />
+                    <input
+                        type="file"
+                        id="file-upload"
+                        className="hidden"
+                        onChange={handleFileChange}
+                    />
+                    <label htmlFor="file-upload" style={{ cursor: "pointer" }}>
+                        <FaPaperclip />
+                    </label>
+                    <button
+                        onClick={handleSendMessage}
+                        className="bg-[#004890] text-white p-2 rounded-md hover:bg-blue-700"
+                    >
+                        Send
+                    </button>
+                    {selectedFileName && (
+                        <div className="flex items-center text-lg text-gray-800">
+                            {selectedFileName}
+                            <FaTimes onClick={handleFileReset} className="ml-2 cursor-pointer text-gray-500" />
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
