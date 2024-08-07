@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { sendMessage, onMessage, offMessage } from '../socket';
 import { useNavigate } from 'react-router-dom';
+import { sendMessage, onMessage, offMessage, onUserAdded, offUserAdded, onMessagesCleared, offMessagesCleared, onChatAdded, offChatAdded } from '../socket'; // Ensure these are correctly set up
 import { FaPaperclip, FaSearch, FaTimes, FaDownload, FaFilePdf, FaFileAlt } from "react-icons/fa";
 import axios from 'axios';
 
@@ -13,45 +13,101 @@ const Chat2 = () => {
     const [selectedFile, setSelectedFile] = useState(null);
     const [selectedFileName, setSelectedFileName] = useState('');
     const [filePreview, setFilePreview] = useState(null);
-    const [chats, setChats] = useState(["User1", "User2", "User3", "User4"]);
-    const [activeChat, setActiveChat] = useState("General Chat");
-    const [searchTerm, setSearchTerm] = useState('');
+    const [chats, setChats] = useState([]);
+    const [activeChat, setActiveChat] = useState('');
+    const [searchTerm, setSearchTerm] = useState(''); // State for chat search term
+    const [users, setUsers] = useState([]); // Add state to store users
+    const [userSearchTerm, setUserSearchTerm] = useState(''); // State for user search term
     const [showModal, setShowModal] = useState(false);
     const [modalContent, setModalContent] = useState(null);
     const modalRef = useRef(null);
     const messageContainerRef = useRef(null);
 
-    const BASEURL = "http://10.121.214.142:3000";
+    const BASEURL = "http://10.216.92.141:3000";
 
     useEffect(() => {
-        // Fetch messages from the database
-        const fetchMessages = async () => {
+        const fetchChats = async () => {
             try {
-                const response = await axios.get(`${BASEURL}/messages`);
-                if (response && response.data) {
-                    setMessages(response.data);
+                const response = await axios.get(`${BASEURL}/chats`);
+                if (response) {
+                    console.log("all chats", response);
+                    setChats(response.data);
+                    const savedActiveChat = localStorage.getItem('activeChat');
+                    if (savedActiveChat) {
+                        setActiveChat(savedActiveChat);
+                        const initialChat = response.data.find(chat => chat.chatId === savedActiveChat);
+                        if (initialChat) {
+                            setMessages(initialChat.messages);
+                        }
+                    }
+                } else {
+                    console.error('Failed to fetch chats');
                 }
             } catch (error) {
-                console.log(error);
+                console.error('Error fetching chats:', error);
             }
         };
 
-        fetchMessages();
 
-        const handleMessage = (message) => {
-            setMessages((prevMessages) => [...prevMessages, message]);
-        };
+        fetchChats();
 
-        onMessage(handleMessage);
-        return () => {
-            offMessage();
-        };
+        const storedUserName = localStorage.getItem("userName");
+        setUserName(storedUserName);
     }, []);
 
     useEffect(() => {
-        const userName = localStorage.getItem("userName");
-        setUserName(userName);
-    }, []);
+        if (activeChat) {
+            localStorage.setItem('activeChat', activeChat);
+            const fetchMessages = async () => {
+                try {
+                    const response = await axios.get(`${BASEURL}/chats/${activeChat}/messages`);
+                    if (response && response.data) {
+                        setMessages(response.data);
+                    }
+                } catch (error) {
+                    console.log('Error fetching messages:', error);
+                }
+            };
+            fetchMessages();
+        }
+    }, [activeChat]);
+
+    useEffect(() => {
+        const handleMessage = (data) => {
+            const { chatId, newMessage } = data;
+            if (chatId === activeChat) {
+                setMessages((prevMessages) => [...prevMessages, newMessage]);
+            }
+        };
+
+        const handleUserAdded = (user) => {
+            console.log("New user added:", user);
+            // Handle new user added logic here if needed
+        };
+
+        const handleChatAdded = (chat) => {
+            console.log("New chat added:", chat);
+            setChats((prevChats) => [...prevChats, chat]);
+        };
+
+        const handleMessagesCleared = () => {
+            if (activeChat) {
+                setMessages([]);
+            }
+        };
+
+        onMessage(handleMessage);
+        onUserAdded(handleUserAdded);
+        onChatAdded(handleChatAdded);
+        onMessagesCleared(handleMessagesCleared);
+
+        return () => {
+            offMessage(handleMessage);
+            offUserAdded(handleUserAdded);
+            offChatAdded(handleChatAdded);
+            offMessagesCleared(handleMessagesCleared);
+        };
+    }, [activeChat]);
 
     useEffect(() => {
         if (messageContainerRef.current) {
@@ -99,9 +155,14 @@ const Chat2 = () => {
                 text: messageText,
                 username: userName,
                 file: fileData,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                chatId: activeChat
             };
-            sendMessage(newMessage);  // Emit message via socket
+
+            // Emit message via socket
+            sendMessage(newMessage);
+
+            // Clear input fields after sending the message
             setMessageText('');
             setSelectedFile(null);
             setSelectedFileName('');
@@ -135,10 +196,14 @@ const Chat2 = () => {
         }
     };
 
-    const handleLogout = () => {
-        localStorage.clear();
-        navigate('/');
-        window.location.reload();
+    const handleLogout = async () => {
+        try {
+            await axios.delete(`${BASEURL}/chats`);
+            setMessages([]);
+            window.location.reload();
+        } catch (error) {
+            console.log('Error resetting chat:', error);
+        }
     };
 
     const handleFileDownload = (file) => {
@@ -155,7 +220,7 @@ const Chat2 = () => {
     };
 
     const handleChatClick = (chat) => {
-        setActiveChat(chat);
+        setActiveChat(chat.chatId); // Set active chat by chatId
     };
 
     const handleFileClick = (file) => {
@@ -168,11 +233,17 @@ const Chat2 = () => {
         setModalContent(null);
     };
 
-    const filteredChats = chats.filter(chat => chat.toLowerCase().includes(searchTerm.toLowerCase()));
+    const filteredUsers = users.filter(user =>
+        user.username.toLowerCase().includes(userSearchTerm.toLowerCase())
+    );
+
+    const filteredChats = chats.filter(chat =>
+        chat.userName.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     return (
         <div className="flex h-screen">
-            <div className="w-1/4 bg-[#F3F4F6] p-4">
+            <div className="w-1/4 bg-[#F3F4F6] p-4 md:block hidden">
                 <h2 className="text-2xl font-bold mb-4">Chats</h2>
                 <div className="relative mb-4">
                     <input
@@ -187,17 +258,18 @@ const Chat2 = () => {
 
                 <ul className="space-y-2">
                     {filteredChats.map((chat, index) => (
-                        <li key={index} className={`cursor-pointer p-2 rounded-md ${chat === activeChat ? 'bg-[#004890] text-white' : 'bg-gray-200 text-gray-900'}`} onClick={() => handleChatClick(chat)}>
-                            {chat}
+                        <li key={index} className={`cursor-pointer p-2 rounded-md ${chat?.chatId === activeChat ? 'bg-[#004890] text-white' : 'bg-gray-200 text-gray-900'}`} onClick={() => handleChatClick(chat)}>
+                            {chat?.userName}
                         </li>
                     ))}
                 </ul>
             </div>
+
             <div className={`flex flex-col h-screen w-3/4 mx-auto border border-gray-300 shadow-md rounded-lg overflow-hidden ${darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}`}>
-                <header className="bg-[#004890] font-serif text-white p-4  text-xl font-semibold flex justify-between items-center">
+                <header className="bg-[#004890] font-serif text-white p-4 text-xl font-semibold flex justify-between items-center">
                     <span>{userName}</span>
                     <span>
-                        <img src="https://cdn.prod.website-files.com/6476dfb953dc2bc84373e1b2/650d2c2e05326b2de5695b99_JS%20Bank%20Logo-%20White.png" className='w-23 h-10' alt="" />
+                        <img src="https://cdn.prod.website-files.com/6476dfb953dc2bc84373e1b2/650d2c2e05326b2de5695b99_JS%20Bank%20Logo-%20White.png" className='w-23 h-10' alt="Logo" />
                     </span>
                     <button className='text-sm border border-slate-950 p-2 rounded-md bg-gray-400' onClick={handleLogout}>Reset Chat</button>
                 </header>
